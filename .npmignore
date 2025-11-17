@@ -1,0 +1,25 @@
+# Source files (keep dist/ only)
+src/
+*.test.ts
+*.test.js
+
+# Test files and coverage
+tests/
+coverage/
+.nyc_output/
+jest.config.js
+
+# TypeScript config
+tsconfig.json
+
+# Development files
+.vscode/
+.idea/
+.git/
+.gitignore
+.env*
+
+# Misc
+*.log
+*.tsbuildinfo
+.DS_Store
