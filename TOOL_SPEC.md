@@ -15,12 +15,16 @@
 #### Parameters
 ```typescript
 {
-  file_path: string;           // Required: absolute or relative path
-  pattern: string;             // Required: "pattern" or "/pattern/flags"
-  flags?: string;              // Optional: override flags (e.g., "gi", "gm")
-  context_before?: number;     // Optional: lines before match (default: 0)
-  context_after?: number;      // Optional: lines after match (default: 0)
-  max_matches?: number;        // Optional: limit results (default: unlimited)
+  file_path: string;                // Required: absolute or relative path
+  pattern: string;                  // Required: "pattern" or "/pattern/flags"
+  flags?: string;                   // Optional: override flags (e.g., "gi", "gm")
+  context_before?: number;          // Optional: lines before match (default: 0)
+  context_after?: number;           // Optional: lines after match (default: 0)
+  max_matches?: number;             // Optional: limit results (default: unlimited)
+  binary_check_buffer_size?: number; // Optional: bytes to check for binary (default: 8192)
+                                    //   <= 0: treat binary as text (no detection)
+                                    //   null/undefined: use 8192 default
+                                    //   > 0: check first N bytes for null byte
 }
 ```
 
@@ -52,8 +56,9 @@
 File not found: src/missing.js
 Permission denied: /etc/shadow
 Invalid regex: Unmatched '(' at position 12
-File is binary: src/image.png
 ```
+
+**Note**: Binary files (files with null bytes) are skipped by default. Use `binary_check_buffer_size: 0` to search binary files as text.
 
 ---
 
@@ -64,13 +69,17 @@ File is binary: src/image.png
 #### Parameters
 ```typescript
 {
-  path_pattern: string;        // Required: glob like "src/**/*.js"
-  pattern: string;             // Required: regex pattern or "/pattern/flags"
-  flags?: string;              // Optional: override flags
-  context_before?: number;     // Optional: lines before (default: 0)
-  context_after?: number;      // Optional: lines after (default: 0)
-  max_matches?: number;        // Optional: total limit across ALL files
-  exclude?: string[];          // Optional: exclude patterns ["node_modules/**", "*.min.js"]
+  path_pattern: string;                // Required: glob like "src/**/*.js"
+  pattern: string;                     // Required: regex pattern or "/pattern/flags"
+  flags?: string;                      // Optional: override flags
+  context_before?: number;             // Optional: lines before (default: 0)
+  context_after?: number;              // Optional: lines after (default: 0)
+  max_matches?: number;                // Optional: total limit across ALL files
+  exclude?: string[];                  // Optional: exclude patterns ["node_modules/**", "*.min.js"]
+  binary_check_buffer_size?: number;   // Optional: bytes to check for binary (default: 8192)
+                                       //   <= 0: treat binary as text
+                                       //   null/undefined: use 8192 default
+                                       //   > 0: check first N bytes
 }
 ```
 
@@ -116,14 +125,18 @@ Invalid glob pattern: src/[**
 #### Parameters
 ```typescript
 {
-  file_path: string;           // Required: path to file
-  pattern: string;             // Required: regex or "/pattern/flags"
-  replacement: string;         // Required: replacement (supports $1, $2, ${name})
-  flags?: string;              // Optional: override flags
-  context_before?: number;     // Optional: show context (default: 0)
-  context_after?: number;      // Optional: show context (default: 0)
-  dry_run?: boolean;           // Optional: preview only (default: false)
-  max_replacements?: number;   // Optional: safety limit
+  file_path: string;                // Required: path to file
+  pattern: string;                  // Required: regex or "/pattern/flags"
+  replacement: string;              // Required: replacement (supports $1, $2, ${name})
+  flags?: string;                   // Optional: override flags
+  context_before?: number;          // Optional: show context (default: 0)
+  context_after?: number;           // Optional: show context (default: 0)
+  dry_run?: boolean;                // Optional: preview only (default: false)
+  max_replacements?: number;        // Optional: safety limit
+  binary_check_buffer_size?: number; // Optional: bytes to check for binary (default: 8192)
+                                    //   <= 0: treat binary as text
+                                    //   null/undefined: use 8192 default
+                                    //   > 0: check first N bytes
 }
 ```
 
@@ -181,15 +194,19 @@ Max replacements exceeded: 1000 (limit: 500)
 #### Parameters
 ```typescript
 {
-  path_pattern: string;        // Required: glob like "src/**/*.ts"
-  pattern: string;             // Required: regex or "/pattern/flags"
-  replacement: string;         // Required: replacement string
-  flags?: string;              // Optional: override flags
-  context_before?: number;     // Optional: context (default: 0)
-  context_after?: number;      // Optional: context (default: 0)
-  dry_run?: boolean;           // Optional: preview (default: false)
-  max_replacements?: number;   // Optional: total limit across all files
-  exclude?: string[];          // Optional: exclude patterns
+  path_pattern: string;                // Required: glob like "src/**/*.ts"
+  pattern: string;                     // Required: regex or "/pattern/flags"
+  replacement: string;                 // Required: replacement string
+  flags?: string;                      // Optional: override flags
+  context_before?: number;             // Optional: context (default: 0)
+  context_after?: number;              // Optional: context (default: 0)
+  dry_run?: boolean;                   // Optional: preview (default: false)
+  max_replacements?: number;           // Optional: total limit across all files
+  exclude?: string[];                  // Optional: exclude patterns
+  binary_check_buffer_size?: number;   // Optional: bytes to check for binary (default: 8192)
+                                       //   <= 0: treat binary as text
+                                       //   null/undefined: use 8192 default
+                                       //   > 0: check first N bytes
 }
 ```
 
@@ -241,10 +258,14 @@ File modified during operation: src/app.ts (another process changed it)
 #### Parameters
 ```typescript
 {
-  file_path: string;           // Required: path to file
-  pattern: string;             // Required: regex WITH capture groups
-  flags?: string;              // Optional: flags
-  max_matches?: number;        // Optional: limit results
+  file_path: string;                // Required: path to file
+  pattern: string;                  // Required: regex WITH capture groups
+  flags?: string;                   // Optional: flags
+  max_matches?: number;             // Optional: limit results
+  binary_check_buffer_size?: number; // Optional: bytes to check for binary (default: 8192)
+                                    //   <= 0: treat binary as text
+                                    //   null/undefined: use 8192 default
+                                    //   > 0: check first N bytes
 }
 ```
 
@@ -286,11 +307,15 @@ Pattern has no capture groups: \\d+
 #### Parameters
 ```typescript
 {
-  file_path: string;           // Required: path to file
-  pattern: string;             // Required: regex or "/pattern/flags"
-  flags?: string;              // Optional: flags
-  invert?: boolean;            // Optional: return non-matching lines (default: false)
-  max_lines?: number;          // Optional: limit results
+  file_path: string;                // Required: path to file
+  pattern: string;                  // Required: regex or "/pattern/flags"
+  flags?: string;                   // Optional: flags
+  invert?: boolean;                 // Optional: return non-matching lines (default: false)
+  max_lines?: number;               // Optional: limit results
+  binary_check_buffer_size?: number; // Optional: bytes to check for binary (default: 8192)
+                                    //   <= 0: treat binary as text
+                                    //   null/undefined: use 8192 default
+                                    //   > 0: check first N bytes
 }
 ```
 
@@ -331,10 +356,14 @@ Pattern has no capture groups: \\d+
 #### Parameters
 ```typescript
 {
-  file_path: string;           // Required: path to file
-  pattern: string;             // Required: regex delimiter
-  flags?: string;              // Optional: flags
-  max_splits?: number;         // Optional: limit number of splits
+  file_path: string;                // Required: path to file
+  pattern: string;                  // Required: regex delimiter
+  flags?: string;                   // Optional: flags
+  max_splits?: number;              // Optional: limit number of splits
+  binary_check_buffer_size?: number; // Optional: bytes to check for binary (default: 8192)
+                                    //   <= 0: treat binary as text
+                                    //   null/undefined: use 8192 default
+                                    //   > 0: check first N bytes
 }
 ```
 
@@ -414,10 +443,24 @@ Named groups: Include as object? Or keep array simple?
 
 ### File Handling
 ```typescript
-// Check if binary
-function isBinary(buffer: Buffer): boolean {
-  // Check for null bytes in first 8KB
-  return buffer.slice(0, 8192).includes(0);
+// Binary detection based on null bytes
+function isBinary(buffer: Buffer, checkSize: number): boolean {
+  if (checkSize <= 0) {
+    return false; // Treat all files as text
+  }
+  // Check for null bytes in first N bytes
+  const checkBuffer = buffer.slice(0, checkSize);
+  return checkBuffer.includes(0);
+}
+
+// Usage
+const DEFAULT_BINARY_CHECK_SIZE = 8192; // 8KB
+const checkSize = params.binary_check_buffer_size ?? DEFAULT_BINARY_CHECK_SIZE;
+
+const buffer = await fs.readFile(filePath);
+if (isBinary(buffer, checkSize)) {
+  // Skip this file (return empty results or continue to next file)
+  return [];
 }
 
 // Default encoding
@@ -463,9 +506,11 @@ if (statBefore.mtimeMs !== statAfter.mtimeMs) {
 
 1. **regex_match_lines output**: JSON array or plain text?
 2. **Named capture groups**: Include as object or just array indices?
-3. **Character positions**: Include column numbers or just line numbers?
-4. **Binary file handling**: Skip silently or return in error list?
-5. **Encoding**: Support just UTF-8 or allow encoding parameter?
+3. **Encoding**: Support just UTF-8 or allow encoding parameter?
+
+**Resolved**:
+- ✅ **Binary file handling**: Skip silently by default (8KB check), configurable via `binary_check_buffer_size`
+- ✅ **Character positions**: Include column numbers (already in spec)
 
 ---
 
