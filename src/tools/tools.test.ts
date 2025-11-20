@@ -3,9 +3,7 @@ import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import { regexSearch } from './regex-search.js';
-import { regexSearchMulti } from './regex-search-multi.js';
 import { regexReplace } from './regex-replace.js';
-import { regexReplaceMulti } from './regex-replace-multi.js';
 import { regexExtract } from './regex-extract.js';
 import { regexMatchLines } from './regex-match-lines.js';
 import { regexSplit } from './regex-split.js';
@@ -27,7 +25,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'Hello World\nTest 123\nAnother test');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         flags: 'i',
       });
@@ -44,7 +42,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'Test 123');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '/test/i',
       });
 
@@ -57,7 +55,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'function hello() {}');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'function (\\w+)',
       });
 
@@ -70,7 +68,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'line1\nline2\nTARGET\nline4\nline5');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'TARGET',
         context_before: 1,
         context_after: 1,
@@ -85,7 +83,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'TeSt\nTEST\ntest');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         flags: 'gi',
       });
@@ -98,7 +96,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'start\nmiddle\nend');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '^middle$',
         flags: 'gm',
       });
@@ -112,7 +110,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'line1\nline2\nline3');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'line1.*line3',
         flags: 's',
       });
@@ -127,7 +125,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'test\ntest\ntest\ntest');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         max_matches: 2,
       });
@@ -140,7 +138,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, Buffer.from([0x00, 0x01, 0x02]));
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
       });
 
@@ -152,7 +150,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, Buffer.from('test\x00data'));
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         binary_check_buffer_size: 0,
       });
@@ -165,29 +163,27 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'Hello World');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'xyz',
       });
 
       expect(results).toEqual([]);
     });
 
-    it('should throw error for non-existent file', async () => {
-      await expect(
-        regexSearch({
-          file_path: '/nonexistent.txt',
-          pattern: 'test',
-        })
-      ).rejects.toMatch(/File not found/);
-    });
-  });
+    it('should return empty array for non-existent file pattern', async () => {
+      const results = await regexSearch({
+        path_pattern: '/nonexistent/*.txt',
+        pattern: 'test',
+      });
 
-  describe('regexSearchMulti', () => {
-    it('should search across multiple files', async () => {
+      expect(results).toEqual([]);
+    });
+
+    it('should search across multiple files with glob pattern', async () => {
       await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'Hello test1');
       await fs.writeFile(path.join(tmpDir, 'file2.txt'), 'World test2');
 
-      const results = await regexSearchMulti({
+      const results = await regexSearch({
         path_pattern: path.join(tmpDir, '*.txt'),
         pattern: 'test\\d',
       });
@@ -197,13 +193,31 @@ describe('Regex Tools Integration Tests', () => {
       expect(results.some((r) => r.match === 'test2')).toBe(true);
     });
 
+    it('should support recursive glob pattern with **', async () => {
+      // Create nested directory structure
+      const subDir = path.join(tmpDir, 'subdir');
+      await fs.mkdir(subDir);
+      await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'test1');
+      await fs.writeFile(path.join(subDir, 'file2.txt'), 'test2');
+
+      const results = await regexSearch({
+        path_pattern: path.join(tmpDir, '**/*.txt'),
+        pattern: 'test\\d',
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results.some((r) => r.file.includes('file1.txt'))).toBe(true);
+      expect(results.some((r) => r.file.includes('file2.txt'))).toBe(true);
+    });
+
     it('should respect exclude patterns', async () => {
       await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'test');
       await fs.writeFile(path.join(tmpDir, 'file2.log'), 'test');
 
-      const results = await regexSearchMulti({
-        path_pattern: path.join(tmpDir, '*.txt'),  // Only match .txt files
+      const results = await regexSearch({
+        path_pattern: path.join(tmpDir, '*'),
         pattern: 'test',
+        exclude: ['**/*.log'],
       });
 
       expect(results).toHaveLength(1);
@@ -211,7 +225,7 @@ describe('Regex Tools Integration Tests', () => {
     });
 
     it('should handle no matching files', async () => {
-      const results = await regexSearchMulti({
+      const results = await regexSearch({
         path_pattern: path.join(tmpDir, '*.xyz'),
         pattern: 'test',
       });
@@ -226,7 +240,7 @@ describe('Regex Tools Integration Tests', () => {
       }
 
       const startTime = Date.now();
-      const results = await regexSearchMulti({
+      const results = await regexSearch({
         path_pattern: path.join(tmpDir, '*.txt'),
         pattern: 'test',
       });
@@ -244,7 +258,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'Hello World\nHello Universe');
 
       const results = await regexReplace({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'Hello',
         replacement: 'Hi',
         flags: 'g',
@@ -263,7 +277,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'var x = 1;');
 
       await regexReplace({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'var (\\w+)',
         replacement: 'const $1',
       });
@@ -278,7 +292,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, original);
 
       const results = await regexReplace({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'Hello',
         replacement: 'Hi',
         dry_run: true,
@@ -295,7 +309,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'test test test test');
 
       const results = await regexReplace({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         replacement: 'TEST',
         flags: 'g',
@@ -310,21 +324,19 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'Hello World');
 
       const results = await regexReplace({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'xyz',
         replacement: 'abc',
       });
 
       expect(results).toEqual([]);
     });
-  });
 
-  describe('regexReplaceMulti', () => {
-    it('should replace across multiple files', async () => {
+    it('should replace across multiple files with glob pattern', async () => {
       await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'var x = 1;');
       await fs.writeFile(path.join(tmpDir, 'file2.txt'), 'var y = 2;');
 
-      const results = await regexReplaceMulti({
+      const results = await regexReplace({
         path_pattern: path.join(tmpDir, '*.txt'),
         pattern: 'var (\\w+)',
         replacement: 'const $1',
@@ -347,7 +359,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(path.join(tmpDir, 'file1.txt'), original1);
       await fs.writeFile(path.join(tmpDir, 'file2.txt'), original2);
 
-      const results = await regexReplaceMulti({
+      const results = await regexReplace({
         path_pattern: path.join(tmpDir, '*.txt'),
         pattern: 'var',
         replacement: 'const',
@@ -370,7 +382,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, '"name": "value"\n"key": "data"');
 
       const results = await regexExtract({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '"(\\w+)":\\s*"(\\w+)"',
         flags: 'g',
       });
@@ -386,7 +398,7 @@ describe('Regex Tools Integration Tests', () => {
 
       await expect(
         regexExtract({
-          file_path: filePath,
+          path_pattern: filePath,
           pattern: 'test',
         })
       ).rejects.toMatch(/Pattern has no capture groups/);
@@ -397,10 +409,23 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'a1 b2 c3 d4');
 
       const results = await regexExtract({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '(\\w)(\\d)',
         flags: 'g',
         max_matches: 2,
+      });
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should extract from multiple files with glob pattern', async () => {
+      await fs.writeFile(path.join(tmpDir, 'file1.txt'), '"key1": "val1"');
+      await fs.writeFile(path.join(tmpDir, 'file2.txt'), '"key2": "val2"');
+
+      const results = await regexExtract({
+        path_pattern: path.join(tmpDir, '*.txt'),
+        pattern: '"(\\w+)":\\s*"(\\w+)"',
+        flags: 'g',
       });
 
       expect(results).toHaveLength(2);
@@ -413,7 +438,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'ERROR: failed\nINFO: success\nERROR: timeout');
 
       const results = await regexMatchLines({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'ERROR',
       });
 
@@ -427,7 +452,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'keep\n# comment\nkeep');
 
       const results = await regexMatchLines({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '^#',
         invert: true,
       });
@@ -442,7 +467,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'test\ntest\ntest\ntest');
 
       const results = await regexMatchLines({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
         max_lines: 2,
       });
@@ -455,11 +480,23 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'one\ntwo\nthree');
 
       const results = await regexMatchLines({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'two',
       });
 
       expect(results[0].line).toBe(2);
+    });
+
+    it('should match lines from multiple files with glob pattern', async () => {
+      await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'ERROR: file1');
+      await fs.writeFile(path.join(tmpDir, 'file2.txt'), 'ERROR: file2');
+
+      const results = await regexMatchLines({
+        path_pattern: path.join(tmpDir, '*.txt'),
+        pattern: 'ERROR',
+      });
+
+      expect(results).toHaveLength(2);
     });
   });
 
@@ -469,7 +506,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'section1\n\nsection2\n\nsection3');
 
       const results = await regexSplit({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '\\n\\n',
       });
 
@@ -484,7 +521,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'a,b,c,d,e');
 
       const results = await regexSplit({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: ',',
         max_splits: 2,
       });
@@ -497,7 +534,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'line1\nline2\n---\nline3\nline4');
 
       const results = await regexSplit({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '---',
       });
 
@@ -511,12 +548,37 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, content);
 
       const results = await regexSplit({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: '---',
       });
 
       expect(results).toHaveLength(1);
       expect(results[0].content).toBe(content);
+    });
+
+    it('should include file path in results', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'section1\n\nsection2');
+
+      const results = await regexSplit({
+        path_pattern: filePath,
+        pattern: '\\n\\n',
+      });
+
+      expect(results[0].file).toBe(filePath);
+    });
+
+    it('should split multiple files with glob pattern', async () => {
+      await fs.writeFile(path.join(tmpDir, 'file1.txt'), 'a,b');
+      await fs.writeFile(path.join(tmpDir, 'file2.txt'), 'c,d');
+
+      const results = await regexSplit({
+        path_pattern: path.join(tmpDir, '*.txt'),
+        pattern: ',',
+      });
+
+      // Each file has 2 segments = 4 total
+      expect(results).toHaveLength(4);
     });
   });
 
@@ -527,7 +589,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'line1\r\nline2\r\nline3');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'line',
         flags: 'g',
       });
@@ -542,7 +604,7 @@ describe('Regex Tools Integration Tests', () => {
       await fs.writeFile(filePath, 'test content');
 
       const results = await regexSearch({
-        file_path: filePath,
+        path_pattern: filePath,
         pattern: 'test',
       });
 

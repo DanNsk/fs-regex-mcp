@@ -1,69 +1,117 @@
+import glob from 'fast-glob';
 import {
   parsePattern,
   createRegex,
   readFileWithBinaryCheck,
   DEFAULT_BINARY_CHECK_SIZE,
 } from '../utils.js';
-import { RegexMatchLinesParams, MatchLinesResult } from '../types.js';
+import { RegexMatchLinesParams, MatchLinesResult, FileProcessingResult } from '../types.js';
 
 /**
- * Filter lines that match (or don't match) a pattern
- * Similar to grep/grep -v
+ * Filter lines that match (or don't match) a pattern in files matching the path pattern
+ * Similar to grep/grep -v. Supports glob patterns for multiple files.
  * @param params - Match lines parameters
- * @returns Array of matching lines with line numbers
+ * @returns Array of matching lines with line numbers from all matching files
  * @throws Error string if operation fails
  */
 export async function regexMatchLines(params: RegexMatchLinesParams): Promise<MatchLinesResult[]> {
   try {
     const {
-      file_path,
+      path_pattern,
       pattern,
       flags,
       invert = false,
       max_lines,
+      exclude = [],
       binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE,
     } = params;
 
-    // Read file with binary check
-    const content = await readFileWithBinaryCheck(file_path, binary_check_buffer_size);
+    // Find all matching files using glob
+    const files = await glob(path_pattern, {
+      ignore: exclude,
+      absolute: true,
+      onlyFiles: true,
+      followSymbolicLinks: false,
+    });
 
-    if (content === null) {
-      // Binary file, return empty results
+    if (files.length === 0) {
       return [];
     }
 
-    // Parse pattern and create regex
+    // Parse pattern and create regex once
     const parsedPattern = parsePattern(pattern, flags);
     const regex = createRegex(parsedPattern);
 
-    // Split into lines
-    const lines = content.split('\n');
+    // Process all files concurrently
+    const fileProcessingPromises = files.map(async (file): Promise<FileProcessingResult<MatchLinesResult>> => {
+      try {
+        // Read file with binary check
+        const content = await readFileWithBinaryCheck(file, binary_check_buffer_size);
 
-    // Filter lines based on pattern match and invert flag
-    const results: MatchLinesResult[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const matches = regex.test(line);
-
-      // Include line if: (matches and not inverted) OR (doesn't match and inverted)
-      if (matches !== invert) {
-        results.push({
-          file: file_path,
-          line: i + 1, // 1-based line numbers
-          content: line,
-        });
-
-        if (max_lines && results.length >= max_lines) {
-          break;
+        if (content === null) {
+          // Binary file, return empty results
+          return { results: [] };
         }
-      }
 
-      // Reset regex lastIndex for next test
-      regex.lastIndex = 0;
+        // Create a fresh regex instance for each file (to reset lastIndex)
+        const fileRegex = new RegExp(regex.source, regex.flags);
+
+        // Split into lines
+        const lines = content.split('\n');
+
+        // Filter lines based on pattern match and invert flag
+        const results: MatchLinesResult[] = [];
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const matches = fileRegex.test(line);
+
+          // Include line if: (matches and not inverted) OR (doesn't match and inverted)
+          if (matches !== invert) {
+            results.push({
+              file,
+              line: i + 1, // 1-based line numbers
+              content: line,
+            });
+
+            if (max_lines && results.length >= Math.ceil(max_lines / files.length)) {
+              break;
+            }
+          }
+
+          // Reset regex lastIndex for next test
+          fileRegex.lastIndex = 0;
+        }
+
+        return { results };
+      } catch (error) {
+        // Return error for this file, but continue processing others
+        return {
+          results: [],
+          error: String(error),
+          file,
+        };
+      }
+    });
+
+    // Wait for all files to be processed
+    const fileResults = await Promise.all(fileProcessingPromises);
+
+    // Flatten results from all files
+    const allResults: MatchLinesResult[] = [];
+    let totalLines = 0;
+
+    for (const fileResult of fileResults) {
+      for (const result of fileResult.results) {
+        if (max_lines && totalLines >= max_lines) {
+          return allResults;
+        }
+        allResults.push(result);
+        totalLines++;
+      }
     }
 
-    return results;
+    return allResults;
   } catch (error) {
     if (error instanceof Error) {
       throw error.message;

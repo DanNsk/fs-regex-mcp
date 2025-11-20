@@ -5,59 +5,34 @@ export interface BaseParams {
   pattern: string;
   flags?: string;
   binary_check_buffer_size?: number;
+  path_pattern: string;
+  exclude?: string[];
 }
 
 /**
  * Parameters for regex_search
  */
 export interface RegexSearchParams extends BaseParams {
-  file_path: string;
   context_before?: number;
   context_after?: number;
   max_matches?: number;
-}
-
-/**
- * Parameters for regex_search_multi
- */
-export interface RegexSearchMultiParams extends BaseParams {
-  path_pattern: string;
-  context_before?: number;
-  context_after?: number;
-  max_matches?: number;
-  exclude?: string[];
 }
 
 /**
  * Parameters for regex_replace
  */
 export interface RegexReplaceParams extends BaseParams {
-  file_path: string;
   replacement: string;
   context_before?: number;
   context_after?: number;
   dry_run?: boolean;
   max_replacements?: number;
-}
-
-/**
- * Parameters for regex_replace_multi
- */
-export interface RegexReplaceMultiParams extends BaseParams {
-  path_pattern: string;
-  replacement: string;
-  context_before?: number;
-  context_after?: number;
-  dry_run?: boolean;
-  max_replacements?: number;
-  exclude?: string[];
 }
 
 /**
  * Parameters for regex_extract
  */
 export interface RegexExtractParams extends BaseParams {
-  file_path: string;
   max_matches?: number;
 }
 
@@ -65,7 +40,6 @@ export interface RegexExtractParams extends BaseParams {
  * Parameters for regex_match_lines
  */
 export interface RegexMatchLinesParams extends BaseParams {
-  file_path: string;
   invert?: boolean;
   max_lines?: number;
 }
@@ -74,12 +48,11 @@ export interface RegexMatchLinesParams extends BaseParams {
  * Parameters for regex_split
  */
 export interface RegexSplitParams extends BaseParams {
-  file_path: string;
   max_splits?: number;
 }
 
 /**
- * Result from regex_search and regex_search_multi
+ * Result from regex_search
  */
 export interface SearchResult {
   file: string;
@@ -92,7 +65,7 @@ export interface SearchResult {
 }
 
 /**
- * Result from regex_replace and regex_replace_multi
+ * Result from regex_replace
  */
 export interface ReplaceResult {
   file: string;
@@ -127,6 +100,7 @@ export interface MatchLinesResult {
  * Result from regex_split
  */
 export interface SplitResult {
+  file: string;
   segment: number;
   content: string;
   line_start: number;
