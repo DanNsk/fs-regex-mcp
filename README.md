@@ -24,10 +24,30 @@ MCP server providing regex-based file operations for LLM programming assistants.
 
 ## Installation
 
+### Quick Start with bunx (Public Repos Only)
+
+Run directly from GitHub without cloning or installing:
+
+```bash
+# Using bunx (Bun)
+bunx github:DanNsk/fs-regex-mcp
+
+# Using npx (Node.js)
+npx github:DanNsk/fs-regex-mcp
+
+# Full URL format (for tools like Kiro/Amazon Q)
+bunx https://github.com/DanNsk/fs-regex-mcp
+npx https://github.com/DanNsk/fs-regex-mcp
+```
+
+This downloads, builds, and runs the MCP server in one command. Perfect for quick testing or one-time use.
+
+**Note:** This only works with **public repositories**. Private repos will return a 404 error. For private repos, use [From Source](#from-source) installation instead.
+
 ### From Source
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/DanNsk/fs-regex-mcp.git
 cd fs-regex-mcp
 npm install
 npm run build
@@ -85,26 +105,66 @@ fs-regex-mcp
 
 ### Option 3: Using with Claude Code (Desktop App)
 
-1. **Build and Package:**
-
-```bash
-npm run build
-npm pack
-```
-
-2. **Install globally (or note the path to dist/index.js):**
-
-```bash
-npm install -g .
-```
-
-3. **Configure Claude Code:**
-
-Add to your MCP settings file (location depends on OS):
+**Configure Claude Code** by adding to your MCP settings file:
 
 **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
+
+#### Method A: Direct from GitHub (Easiest)
+
+No installation required - uses bunx to fetch and run:
+
+```json
+{
+  "mcpServers": {
+    "fs-regex": {
+      "command": "bunx",
+      "args": ["github:DanNsk/fs-regex-mcp"]
+    }
+  }
+}
+```
+
+Or with npx:
+
+```json
+{
+  "mcpServers": {
+    "fs-regex": {
+      "command": "npx",
+      "args": ["github:DanNsk/fs-regex-mcp"]
+    }
+  }
+}
+```
+
+For Kiro/Amazon Q or other tools requiring full URLs:
+
+```json
+{
+  "mcpServers": {
+    "fs-regex": {
+      "command": "bunx",
+      "args": ["https://github.com/DanNsk/fs-regex-mcp"]
+    }
+  }
+}
+```
+
+#### Method B: Global Installation
+
+1. **Build and install globally:**
+
+```bash
+git clone https://github.com/DanNsk/fs-regex-mcp.git
+cd fs-regex-mcp
+npm install
+npm run build
+npm install -g .
+```
+
+2. **Configure:**
 
 ```json
 {
@@ -116,7 +176,7 @@ Add to your MCP settings file (location depends on OS):
 }
 ```
 
-Or if running from source:
+#### Method C: From Source Path
 
 ```json
 {
@@ -129,7 +189,7 @@ Or if running from source:
 }
 ```
 
-4. **Restart Claude Code** to load the server
+**Restart Claude Code** to load the server
 
 ### Option 4: Using with Claude Code (Web)
 
