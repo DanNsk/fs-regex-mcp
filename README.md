@@ -4,7 +4,8 @@ MCP server providing regex-based file operations for LLM programming assistants.
 
 ## Features
 
-- **7 Production-Ready Tools** for regex operations on files
+- **5 Production-Ready Tools** for regex operations on files
+- **Unified Glob Pattern API** - all tools support single files or wildcards
 - **Concurrent Processing** for multi-file operations
 - **Cross-platform** support (Windows, Linux, macOS)
 - **Binary file detection** with configurable buffer size
@@ -14,13 +15,16 @@ MCP server providing regex-based file operations for LLM programming assistants.
 
 ## Tools
 
-1. **regex_search** - Search for pattern matches in a single file
-2. **regex_search_multi** - Search across multiple files (glob patterns)
-3. **regex_replace** - Replace pattern matches in a single file
-4. **regex_replace_multi** - Replace across multiple files (glob patterns)
-5. **regex_extract** - Extract only capture groups for parsing
-6. **regex_match_lines** - Filter lines matching/not matching pattern
-7. **regex_split** - Split file content by regex delimiter
+1. **regex_search** - Search for pattern matches in files (supports glob patterns)
+2. **regex_replace** - Replace pattern matches in files (supports glob patterns)
+3. **regex_extract** - Extract only capture groups for parsing
+4. **regex_match_lines** - Filter lines matching/not matching pattern
+5. **regex_split** - Split file content by regex delimiter
+
+All tools accept `path_pattern` which can be:
+- Exact file path: `"src/app.js"`
+- Single directory glob: `"src/*.js"`
+- Recursive glob: `"src/**/*.ts"` (** matches any number of directories)
 
 ## Installation
 
@@ -206,23 +210,33 @@ The server communicates via stdio, so it can be used with any MCP client that su
 
 ### regex_search
 
-Search for function definitions:
+Search for function definitions in a single file:
 
 ```json
 {
-  "file_path": "src/app.js",
+  "path_pattern": "src/app.js",
   "pattern": "/function\\s+(\\w+)/g",
   "context_after": 1
 }
 ```
 
-### regex_replace
-
-Convert var to const:
+Search across multiple files with glob:
 
 ```json
 {
-  "file_path": "src/app.js",
+  "path_pattern": "src/**/*.js",
+  "pattern": "/TODO:.*$/gim",
+  "exclude": ["**/node_modules/**", "**/dist/**"]
+}
+```
+
+### regex_replace
+
+Convert var to const in a single file:
+
+```json
+{
+  "path_pattern": "src/app.js",
   "pattern": "var\\s+(\\w+)",
   "replacement": "const $1",
   "flags": "g",
@@ -230,15 +244,15 @@ Convert var to const:
 }
 ```
 
-### regex_search_multi
-
-Find all TODO comments:
+Replace across all TypeScript files:
 
 ```json
 {
-  "path_pattern": "src/**/*.js",
-  "pattern": "/TODO:.*$/gim",
-  "exclude": ["node_modules/**", "dist/**"]
+  "path_pattern": "src/**/*.ts",
+  "pattern": "console\\.log",
+  "replacement": "logger.debug",
+  "flags": "g",
+  "exclude": ["**/*.test.ts"]
 }
 ```
 
@@ -248,9 +262,33 @@ Parse JSON-like key-value pairs:
 
 ```json
 {
-  "file_path": "config.txt",
+  "path_pattern": "config.txt",
   "pattern": "\"(\\w+)\":\\s*\"([^\"]+)\"",
   "flags": "g"
+}
+```
+
+### regex_match_lines
+
+Filter error lines from logs:
+
+```json
+{
+  "path_pattern": "logs/*.log",
+  "pattern": "ERROR|FATAL",
+  "flags": "i"
+}
+```
+
+### regex_split
+
+Split markdown by headers:
+
+```json
+{
+  "path_pattern": "docs/*.md",
+  "pattern": "^##\\s+",
+  "flags": "m"
 }
 ```
 
@@ -258,10 +296,15 @@ Parse JSON-like key-value pairs:
 
 ### Common Parameters
 
-All tools support these parameters where applicable:
+All tools support these parameters:
 
+- **path_pattern** (required): File path or glob pattern
+  - `"file.txt"` - single file
+  - `"*.js"` - all .js files in current directory
+  - `"src/**/*.ts"` - recursive search (** = any directories)
 - **pattern** (required): Regex pattern as string or `/pattern/flags` format
 - **flags** (optional): Regex flags - `g` (global), `i` (case-insensitive), `m` (multiline), `s` (dotall)
+- **exclude** (optional): Glob patterns to exclude (e.g., `["**/node_modules/**"]`)
 - **binary_check_buffer_size** (optional):
   - Default: `8192` (8KB) - checks first 8KB for null bytes
   - `<= 0` - treat all files as text (no binary detection)
@@ -270,7 +313,6 @@ All tools support these parameters where applicable:
 - **context_after** (optional): Number of lines after match to include
 - **max_matches** / **max_replacements** (optional): Limit number of results
 - **dry_run** (optional): For replace operations, preview without modifying files
-- **exclude** (optional): For multi-file operations, glob patterns to exclude
 
 ### Pattern Formats
 
@@ -336,7 +378,7 @@ File not found: /path/to/missing.txt
 
 ## Performance
 
-- Multi-file operations process files **concurrently** for optimal performance
+- All operations process files **concurrently** for optimal performance
 - Binary files are skipped early to avoid unnecessary processing
 - Configurable limits (`max_matches`, `max_replacements`) prevent excessive resource usage
 
@@ -352,13 +394,10 @@ fs-regex-mcp/
 │   ├── utils.ts              # Core utilities
 │   └── tools/                # Tool implementations
 │       ├── regex-search.ts
-│       ├── regex-search-multi.ts
 │       ├── regex-replace.ts
-│       ├── regex-replace-multi.ts
 │       ├── regex-extract.ts
 │       ├── regex-match-lines.ts
 │       └── regex-split.ts
-├── tests/                    # Test files
 ├── dist/                     # Compiled output
 ├── package.json
 ├── tsconfig.json
@@ -425,7 +464,7 @@ Use `exclude` patterns and `max_matches`:
 ```json
 {
   "path_pattern": "**/*.js",
-  "exclude": ["node_modules/**", "dist/**", "*.min.js"],
+  "exclude": ["**/node_modules/**", "**/dist/**", "**/*.min.js"],
   "max_matches": 100
 }
 ```
