@@ -1,6 +1,7 @@
+import path from 'path';
 import { promises as fs } from 'fs';
 import glob from 'fast-glob';
-import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAllMatches, getLineAndColumn, processReplacement, DEFAULT_BINARY_CHECK_SIZE, DEFAULT_ENCODING, } from '../utils.js';
+import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAllMatches, getLineAndColumn, processReplacement, normalizeGlobPath, DEFAULT_BINARY_CHECK_SIZE, DEFAULT_ENCODING, } from '../utils.js';
 /**
  * Replace pattern matches in files matching the path pattern.
  * Supports glob patterns (e.g., "*.js", "src/**.ts") for multiple files.
@@ -10,19 +11,21 @@ import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAll
  */
 export async function regexReplace(params) {
     try {
-        const { path_pattern, pattern, replacement, flags, context_before = 0, context_after = 0, dry_run = false, max_replacements, exclude = [], binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE, } = params;
+        const { path_pattern, pattern, replacement, flags, literal = false, context_before = 0, context_after = 0, dry_run = false, max_replacements, exclude = [], binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE, } = params;
         // Find all matching files using glob
-        const files = await glob(path_pattern, {
+        const globResults = await glob(normalizeGlobPath(path_pattern), {
             ignore: exclude,
             absolute: true,
             onlyFiles: true,
             followSymbolicLinks: false,
         });
+        // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+        const files = globResults.map(f => path.normalize(f));
         if (files.length === 0) {
             return [];
         }
         // Parse pattern and create regex once
-        const parsedPattern = parsePattern(pattern, flags);
+        const parsedPattern = parsePattern(pattern, flags, literal);
         const regex = createRegex(parsedPattern);
         // Process all files concurrently
         const fileProcessingPromises = files.map(async (file) => {
@@ -53,8 +56,8 @@ export async function regexReplace(params) {
                     const { line, column } = getLineAndColumn(content, index);
                     const lineIndex = line - 1;
                     const context = getContext(originalLines, lineIndex, context_before, context_after);
-                    // Process replacement string with capture groups
-                    const processedReplacement = processReplacement(replacement, match);
+                    // Process replacement string with capture groups (or use literally if literal mode)
+                    const processedReplacement = literal ? replacement : processReplacement(replacement, match);
                     // Track the result
                     results.push({
                         file,

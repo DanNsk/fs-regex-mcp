@@ -4,6 +4,7 @@
 export interface BaseParams {
   pattern: string;
   flags?: string;
+  literal?: boolean;
   binary_check_buffer_size?: number;
   path_pattern: string;
   exclude?: string[];

@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import {
   parsePattern,
+  escapeRegex,
+  escapeLiteralPattern,
   isBinary,
   readFileWithBinaryCheck,
   getContext,
@@ -38,6 +40,108 @@ describe('parsePattern', () => {
   it('should handle pattern without flags in /pattern/ format', () => {
     const result = parsePattern('/test\\d+/');
     expect(result).toEqual({ pattern: 'test\\d+', flags: '' });
+  });
+
+  it('should escape pattern when literal=true', () => {
+    const result = parsePattern('test.+', undefined, true);
+    expect(result.pattern).toBe('test\\.\\+');
+  });
+
+  it('should handle multi-line pattern in literal mode', () => {
+    const result = parsePattern('line1\nline2', undefined, true);
+    expect(result.pattern).toBe('line1\\r?\\nline2');
+  });
+
+  it('should handle CRLF in literal mode', () => {
+    const result = parsePattern('line1\r\nline2', undefined, true);
+    expect(result.pattern).toBe('line1\\r?\\nline2');
+  });
+
+  it('should escape special chars in multi-line literal mode', () => {
+    const result = parsePattern('func(x)\nreturn x+1', undefined, true);
+    expect(result.pattern).toBe('func\\(x\\)\\r?\\nreturn x\\+1');
+  });
+
+  it('should handle /pattern/ format with literal=true', () => {
+    const result = parsePattern('/test.+/gi', undefined, true);
+    expect(result.pattern).toBe('test\\.\\+');
+    expect(result.flags).toBe('gi');
+  });
+});
+
+describe('escapeRegex', () => {
+  it('should escape dots', () => {
+    expect(escapeRegex('a.b')).toBe('a\\.b');
+  });
+
+  it('should escape asterisks', () => {
+    expect(escapeRegex('a*b')).toBe('a\\*b');
+  });
+
+  it('should escape plus signs', () => {
+    expect(escapeRegex('a+b')).toBe('a\\+b');
+  });
+
+  it('should escape question marks', () => {
+    expect(escapeRegex('a?b')).toBe('a\\?b');
+  });
+
+  it('should escape carets', () => {
+    expect(escapeRegex('^start')).toBe('\\^start');
+  });
+
+  it('should escape dollar signs', () => {
+    expect(escapeRegex('end$')).toBe('end\\$');
+  });
+
+  it('should escape curly braces', () => {
+    expect(escapeRegex('a{1,3}')).toBe('a\\{1,3\\}');
+  });
+
+  it('should escape parentheses', () => {
+    expect(escapeRegex('(group)')).toBe('\\(group\\)');
+  });
+
+  it('should escape pipes', () => {
+    expect(escapeRegex('a|b')).toBe('a\\|b');
+  });
+
+  it('should escape square brackets', () => {
+    expect(escapeRegex('[abc]')).toBe('\\[abc\\]');
+  });
+
+  it('should escape backslashes', () => {
+    expect(escapeRegex('a\\b')).toBe('a\\\\b');
+  });
+
+  it('should escape multiple special chars', () => {
+    expect(escapeRegex('$1.00 + $2.00 = $3.00')).toBe('\\$1\\.00 \\+ \\$2\\.00 = \\$3\\.00');
+  });
+});
+
+describe('escapeLiteralPattern', () => {
+  it('should escape single line pattern', () => {
+    expect(escapeLiteralPattern('test.*')).toBe('test\\.\\*');
+  });
+
+  it('should handle LF newlines', () => {
+    expect(escapeLiteralPattern('line1\nline2')).toBe('line1\\r?\\nline2');
+  });
+
+  it('should handle CRLF newlines', () => {
+    expect(escapeLiteralPattern('line1\r\nline2')).toBe('line1\\r?\\nline2');
+  });
+
+  it('should handle mixed newlines', () => {
+    expect(escapeLiteralPattern('line1\nline2\r\nline3')).toBe('line1\\r?\\nline2\\r?\\nline3');
+  });
+
+  it('should escape special chars in each line', () => {
+    expect(escapeLiteralPattern('func(x)\nreturn x+1')).toBe('func\\(x\\)\\r?\\nreturn x\\+1');
+  });
+
+  it('should handle empty lines', () => {
+    expect(escapeLiteralPattern('line1\n\nline3')).toBe('line1\\r?\\n\\r?\\nline3');
   });
 });
 
@@ -237,12 +341,6 @@ describe('readFileWithBinaryCheck', () => {
   });
 
   it('should throw for non-existent file', async () => {
-    await expect(readFileWithBinaryCheck('/nonexistent')).rejects.toThrow();
-    try {
-      await readFileWithBinaryCheck('/nonexistent');
-      fail('Should have thrown an error');
-    } catch (error) {
-      expect((error as Error).message).toContain('File not found');
-    }
+    await expect(readFileWithBinaryCheck('/nonexistent')).rejects.toThrow('File not found');
   });
 });

@@ -1,3 +1,4 @@
+import path from 'path';
 import { promises as fs } from 'fs';
 import glob from 'fast-glob';
 import {
@@ -8,6 +9,7 @@ import {
   findAllMatches,
   getLineAndColumn,
   processReplacement,
+  normalizeGlobPath,
   DEFAULT_BINARY_CHECK_SIZE,
   DEFAULT_ENCODING,
 } from '../utils.js';
@@ -27,6 +29,7 @@ export async function regexReplace(params: RegexReplaceParams): Promise<ReplaceR
       pattern,
       replacement,
       flags,
+      literal = false,
       context_before = 0,
       context_after = 0,
       dry_run = false,
@@ -36,19 +39,22 @@ export async function regexReplace(params: RegexReplaceParams): Promise<ReplaceR
     } = params;
 
     // Find all matching files using glob
-    const files = await glob(path_pattern, {
+    const globResults = await glob(normalizeGlobPath(path_pattern), {
       ignore: exclude,
       absolute: true,
       onlyFiles: true,
       followSymbolicLinks: false,
     });
 
+    // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+    const files = globResults.map(f => path.normalize(f));
+
     if (files.length === 0) {
       return [];
     }
 
     // Parse pattern and create regex once
-    const parsedPattern = parsePattern(pattern, flags);
+    const parsedPattern = parsePattern(pattern, flags, literal);
     const regex = createRegex(parsedPattern);
 
     // Process all files concurrently
@@ -91,8 +97,8 @@ export async function regexReplace(params: RegexReplaceParams): Promise<ReplaceR
 
           const context = getContext(originalLines, lineIndex, context_before, context_after);
 
-          // Process replacement string with capture groups
-          const processedReplacement = processReplacement(replacement, match);
+          // Process replacement string with capture groups (or use literally if literal mode)
+          const processedReplacement = literal ? replacement : processReplacement(replacement, match);
 
           // Track the result
           results.push({

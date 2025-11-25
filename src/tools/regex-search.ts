@@ -1,3 +1,4 @@
+import path from 'path';
 import glob from 'fast-glob';
 import {
   parsePattern,
@@ -6,6 +7,7 @@ import {
   getContext,
   findAllMatches,
   getLineAndColumn,
+  normalizeGlobPath,
   DEFAULT_BINARY_CHECK_SIZE,
 } from '../utils.js';
 import { RegexSearchParams, SearchResult, FileProcessingResult } from '../types.js';
@@ -23,6 +25,7 @@ export async function regexSearch(params: RegexSearchParams): Promise<SearchResu
       path_pattern,
       pattern,
       flags,
+      literal = false,
       context_before = 0,
       context_after = 0,
       max_matches,
@@ -31,19 +34,22 @@ export async function regexSearch(params: RegexSearchParams): Promise<SearchResu
     } = params;
 
     // Find all matching files using glob
-    const files = await glob(path_pattern, {
+    const globResults = await glob(normalizeGlobPath(path_pattern), {
       ignore: exclude,
       absolute: true,
       onlyFiles: true,
       followSymbolicLinks: false,
     });
 
+    // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+    const files = globResults.map(f => path.normalize(f));
+
     if (files.length === 0) {
       return [];
     }
 
     // Parse pattern and create regex once
-    const parsedPattern = parsePattern(pattern, flags);
+    const parsedPattern = parsePattern(pattern, flags, literal);
     const regex = createRegex(parsedPattern);
 
     // Process all files concurrently

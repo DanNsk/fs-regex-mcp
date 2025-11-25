@@ -28,26 +28,6 @@ All tools accept `path_pattern` which can be:
 
 ## Installation
 
-### Quick Start with bunx (Public Repos Only)
-
-Run directly from GitHub without cloning or installing:
-
-```bash
-# Using bunx (Bun)
-bunx github:DanNsk/fs-regex-mcp
-
-# Using npx (Node.js)
-npx github:DanNsk/fs-regex-mcp
-
-# Full URL format (for tools like Kiro/Amazon Q)
-bunx https://github.com/DanNsk/fs-regex-mcp
-npx https://github.com/DanNsk/fs-regex-mcp
-```
-
-This downloads, builds, and runs the MCP server in one command. Perfect for quick testing or one-time use.
-
-**Note:** This only works with **public repositories**. Private repos will return a 404 error. For private repos, use [From Source](#from-source) installation instead.
-
 ### From Source
 
 ```bash
@@ -115,48 +95,7 @@ fs-regex-mcp
 **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
-#### Method A: Direct from GitHub (Easiest)
-
-No installation required - uses bunx to fetch and run:
-
-```json
-{
-  "mcpServers": {
-    "fs-regex": {
-      "command": "bunx",
-      "args": ["github:DanNsk/fs-regex-mcp"]
-    }
-  }
-}
-```
-
-Or with npx:
-
-```json
-{
-  "mcpServers": {
-    "fs-regex": {
-      "command": "npx",
-      "args": ["github:DanNsk/fs-regex-mcp"]
-    }
-  }
-}
-```
-
-For Kiro/Amazon Q or other tools requiring full URLs:
-
-```json
-{
-  "mcpServers": {
-    "fs-regex": {
-      "command": "bunx",
-      "args": ["https://github.com/DanNsk/fs-regex-mcp"]
-    }
-  }
-}
-```
-
-#### Method B: Global Installation
+#### Method A: Global Installation
 
 1. **Build and install globally:**
 
@@ -180,7 +119,7 @@ npm install -g .
 }
 ```
 
-#### Method C: From Source Path
+#### Method B: From Source Path
 
 ```json
 {
@@ -230,6 +169,16 @@ Search across multiple files with glob:
 }
 ```
 
+Search for literal text with special characters:
+
+```json
+{
+  "path_pattern": "src/**/*.js",
+  "pattern": "function(x)",
+  "literal": true
+}
+```
+
 ### regex_replace
 
 Convert var to const in a single file:
@@ -253,6 +202,17 @@ Replace across all TypeScript files:
   "replacement": "logger.debug",
   "flags": "g",
   "exclude": ["**/*.test.ts"]
+}
+```
+
+Replace literal text (no regex, no capture group substitution):
+
+```json
+{
+  "path_pattern": "src/**/*.js",
+  "pattern": "price = $100",
+  "replacement": "price = $200",
+  "literal": true
 }
 ```
 
@@ -280,6 +240,16 @@ Filter error lines from logs:
 }
 ```
 
+Match lines containing literal special characters:
+
+```json
+{
+  "path_pattern": "config/*.txt",
+  "pattern": "[debug]",
+  "literal": true
+}
+```
+
 ### regex_split
 
 Split markdown by headers:
@@ -289,6 +259,16 @@ Split markdown by headers:
   "path_pattern": "docs/*.md",
   "pattern": "^##\\s+",
   "flags": "m"
+}
+```
+
+Split by literal delimiter:
+
+```json
+{
+  "path_pattern": "data/*.txt",
+  "pattern": "***",
+  "literal": true
 }
 ```
 
@@ -304,6 +284,10 @@ All tools support these parameters:
   - `"src/**/*.ts"` - recursive search (** = any directories)
 - **pattern** (required): Regex pattern as string or `/pattern/flags` format
 - **flags** (optional): Regex flags - `g` (global), `i` (case-insensitive), `m` (multiline), `s` (dotall)
+- **literal** (optional): Treat pattern as literal string, not regex (default: `false`)
+  - When `true`, special regex characters are escaped automatically
+  - Multi-line patterns supported (matches both Windows CRLF and Unix LF)
+  - For `regex_replace`, replacement string is also treated literally (no capture group substitution)
 - **exclude** (optional): Glob patterns to exclude (e.g., `["**/node_modules/**"]`)
 - **binary_check_buffer_size** (optional):
   - Default: `8192` (8KB) - checks first 8KB for null bytes

@@ -1,5 +1,6 @@
+import path from 'path';
 import glob from 'fast-glob';
-import { parsePattern, createRegex, readFileWithBinaryCheck, findAllMatches, getLineAndColumn, validateCaptureGroups, DEFAULT_BINARY_CHECK_SIZE, } from '../utils.js';
+import { parsePattern, createRegex, readFileWithBinaryCheck, findAllMatches, getLineAndColumn, validateCaptureGroups, normalizeGlobPath, DEFAULT_BINARY_CHECK_SIZE, } from '../utils.js';
 /**
  * Extract only capture groups from pattern matches in files matching the path pattern.
  * Supports glob patterns (e.g., "*.js", "src/**.ts") for multiple files.
@@ -14,12 +15,14 @@ export async function regexExtract(params) {
         const parsedPattern = parsePattern(pattern, flags);
         validateCaptureGroups(parsedPattern.pattern);
         // Find all matching files using glob
-        const files = await glob(path_pattern, {
+        const globResults = await glob(normalizeGlobPath(path_pattern), {
             ignore: exclude,
             absolute: true,
             onlyFiles: true,
             followSymbolicLinks: false,
         });
+        // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+        const files = globResults.map(f => path.normalize(f));
         if (files.length === 0) {
             return [];
         }

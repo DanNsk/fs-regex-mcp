@@ -80,8 +80,9 @@ class RegexMCPServer {
                     type: 'object',
                     properties: {
                         path_pattern: { type: 'string', description: 'File path or glob pattern (e.g., "file.txt", "src/*.js", "**/*.ts")' },
-                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format' },
+                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format (or literal string if literal=true)' },
                         flags: { type: 'string', description: 'Optional regex flags (g, i, m, s)' },
+                        literal: { type: 'boolean', description: 'Treat pattern as literal string, not regex (default: false). Multi-line patterns supported.' },
                         context_before: { type: 'number', description: 'Lines before match (default: 0)' },
                         context_after: { type: 'number', description: 'Lines after match (default: 0)' },
                         max_matches: { type: 'number', description: 'Maximum matches to return' },
@@ -93,14 +94,15 @@ class RegexMCPServer {
             },
             {
                 name: 'regex_replace',
-                description: 'Replace pattern matches in files. Supports glob patterns (e.g., "src/**/*.js" for recursive replace). Supports capture groups ($1, ${name}). Returns array of replacements made with file paths.',
+                description: 'Replace pattern matches in files. Supports glob patterns (e.g., "src/**/*.js" for recursive replace). Supports capture groups ($1, ${name}) unless literal=true. Returns array of replacements made with file paths.',
                 inputSchema: {
                     type: 'object',
                     properties: {
                         path_pattern: { type: 'string', description: 'File path or glob pattern (e.g., "file.txt", "src/*.js", "**/*.ts")' },
-                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format' },
-                        replacement: { type: 'string', description: 'Replacement string (supports $1, $2, ${name}, $$)' },
+                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format (or literal string if literal=true)' },
+                        replacement: { type: 'string', description: 'Replacement string (supports $1, $2, ${name}, $$ unless literal=true)' },
                         flags: { type: 'string', description: 'Optional regex flags' },
+                        literal: { type: 'boolean', description: 'Treat pattern and replacement as literal strings (default: false). No capture group substitution.' },
                         context_before: { type: 'number', description: 'Lines before match' },
                         context_after: { type: 'number', description: 'Lines after match' },
                         dry_run: { type: 'boolean', description: 'Preview without writing (default: false)' },
@@ -134,8 +136,9 @@ class RegexMCPServer {
                     type: 'object',
                     properties: {
                         path_pattern: { type: 'string', description: 'File path or glob pattern (e.g., "file.txt", "src/*.js", "**/*.ts")' },
-                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format' },
+                        pattern: { type: 'string', description: 'Regex pattern or /pattern/flags format (or literal string if literal=true)' },
                         flags: { type: 'string', description: 'Optional regex flags' },
+                        literal: { type: 'boolean', description: 'Treat pattern as literal string (default: false)' },
                         invert: { type: 'boolean', description: 'Return non-matching lines (default: false)' },
                         max_lines: { type: 'number', description: 'Maximum lines to return' },
                         exclude: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to exclude' },
@@ -151,8 +154,9 @@ class RegexMCPServer {
                     type: 'object',
                     properties: {
                         path_pattern: { type: 'string', description: 'File path or glob pattern (e.g., "file.txt", "src/*.js", "**/*.ts")' },
-                        pattern: { type: 'string', description: 'Regex delimiter pattern' },
+                        pattern: { type: 'string', description: 'Regex delimiter pattern (or literal string if literal=true)' },
                         flags: { type: 'string', description: 'Optional regex flags' },
+                        literal: { type: 'boolean', description: 'Treat pattern as literal string delimiter (default: false)' },
                         max_splits: { type: 'number', description: 'Maximum number of splits' },
                         exclude: { type: 'array', items: { type: 'string' }, description: 'Glob patterns to exclude' },
                         binary_check_buffer_size: { type: 'number', description: 'Bytes to check for binary' },

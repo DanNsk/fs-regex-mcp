@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -250,6 +250,80 @@ describe('Regex Tools Integration Tests', () => {
       // Concurrent processing should be fast
       expect(endTime - startTime).toBeLessThan(1000);
     });
+
+    it('should search with literal mode for special chars', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'test.*\nfunction(x)\n$100.00');
+
+      const results = await regexSearch({
+        path_pattern: filePath,
+        pattern: 'test.*',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].match).toBe('test.*');
+      expect(results[0].line).toBe(1);
+    });
+
+    it('should search with literal mode for parentheses', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'function(x)\ncall(y)\nmethod(z)');
+
+      const results = await regexSearch({
+        path_pattern: filePath,
+        pattern: 'function(x)',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].match).toBe('function(x)');
+      expect(results[0].line).toBe(1);
+    });
+
+    it('should search with literal mode for multi-line pattern', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'line1\nline2\nline3\nline4');
+
+      const results = await regexSearch({
+        path_pattern: filePath,
+        pattern: 'line2\nline3',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].match).toContain('line2');
+      expect(results[0].match).toContain('line3');
+    });
+
+    it('should search with literal mode for dollar signs', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'Price: $100.00\nCost: $50.00');
+
+      const results = await regexSearch({
+        path_pattern: filePath,
+        pattern: '$100.00',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].match).toBe('$100.00');
+    });
+
+    it('should work with literal=false (default behavior)', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'test123\ntest456');
+
+      const results = await regexSearch({
+        path_pattern: filePath,
+        pattern: 'test\\d+',
+        literal: false,
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results[0].match).toBe('test123');
+      expect(results[1].match).toBe('test456');
+    });
   });
 
   describe('regexReplace', () => {
@@ -373,6 +447,96 @@ describe('Regex Tools Integration Tests', () => {
 
       expect(content1).toBe(original1);
       expect(content2).toBe(original2);
+    });
+
+    it('should replace with literal mode for special chars', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'test.*\nother');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'test.*',
+        replacement: 'matched',
+        literal: true,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('matched\nother');
+    });
+
+    it('should treat replacement literally with literal mode (no $1 substitution)', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'function(x)');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'function(x)',
+        replacement: 'result is $1',
+        literal: true,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('result is $1');
+    });
+
+    it('should treat $$ literally with literal mode (no escaping)', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'price');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'price',
+        replacement: '$$100',
+        literal: true,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('$$100');
+    });
+
+    it('should replace multi-line patterns with literal mode', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'line1\nline2\nline3');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'line1\nline2',
+        replacement: 'replaced',
+        literal: true,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('replaced\nline3');
+    });
+
+    it('should replace ${name} literally with literal mode', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'test');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'test',
+        replacement: '${variable}',
+        literal: true,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('${variable}');
+    });
+
+    it('should work correctly with literal=false for capture groups', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'var x = 1;');
+
+      await regexReplace({
+        path_pattern: filePath,
+        pattern: 'var (\\w+)',
+        replacement: 'const $1',
+        literal: false,
+      });
+
+      const content = await fs.readFile(filePath, 'utf-8');
+      expect(content).toBe('const x = 1;');
     });
   });
 
@@ -498,6 +662,49 @@ describe('Regex Tools Integration Tests', () => {
 
       expect(results).toHaveLength(2);
     });
+
+    it('should match lines with literal mode for special chars', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'function(x)\ntest.*\ncall(y)');
+
+      const results = await regexMatchLines({
+        path_pattern: filePath,
+        pattern: 'function(x)',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].content).toBe('function(x)');
+      expect(results[0].line).toBe(1);
+    });
+
+    it('should match literal patterns with dollar signs', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'Price: $100.00\nCost: $50.00\nTotal');
+
+      const results = await regexMatchLines({
+        path_pattern: filePath,
+        pattern: '$',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(2);
+      expect(results[0].content).toContain('$100.00');
+      expect(results[1].content).toContain('$50.00');
+    });
+
+    it('should work with literal=false (default regex behavior)', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'test123\ntest456\nabc');
+
+      const results = await regexMatchLines({
+        path_pattern: filePath,
+        pattern: 'test\\d+',
+        literal: false,
+      });
+
+      expect(results).toHaveLength(2);
+    });
   });
 
   describe('regexSplit', () => {
@@ -579,6 +786,55 @@ describe('Regex Tools Integration Tests', () => {
 
       // Each file has 2 segments = 4 total
       expect(results).toHaveLength(4);
+    });
+
+    it('should split with literal mode for special chars', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'part1***part2***part3');
+
+      const results = await regexSplit({
+        path_pattern: filePath,
+        pattern: '***',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results[0].content).toBe('part1');
+      expect(results[1].content).toBe('part2');
+      expect(results[2].content).toBe('part3');
+    });
+
+    it('should split with literal parentheses delimiter', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'section1(||)section2(||)section3');
+
+      const results = await regexSplit({
+        path_pattern: filePath,
+        pattern: '(||)',
+        literal: true,
+      });
+
+      expect(results).toHaveLength(3);
+      expect(results[0].content).toBe('section1');
+      expect(results[1].content).toBe('section2');
+      expect(results[2].content).toBe('section3');
+    });
+
+    it('should work with literal=false for regex delimiters', async () => {
+      const filePath = path.join(tmpDir, 'test.txt');
+      await fs.writeFile(filePath, 'a1b2c3d');
+
+      const results = await regexSplit({
+        path_pattern: filePath,
+        pattern: '\\d',
+        literal: false,
+      });
+
+      expect(results).toHaveLength(4);
+      expect(results[0].content).toBe('a');
+      expect(results[1].content).toBe('b');
+      expect(results[2].content).toBe('c');
+      expect(results[3].content).toBe('d');
     });
   });
 

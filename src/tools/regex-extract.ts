@@ -1,3 +1,4 @@
+import path from 'path';
 import glob from 'fast-glob';
 import {
   parsePattern,
@@ -6,6 +7,7 @@ import {
   findAllMatches,
   getLineAndColumn,
   validateCaptureGroups,
+  normalizeGlobPath,
   DEFAULT_BINARY_CHECK_SIZE,
 } from '../utils.js';
 import { RegexExtractParams, ExtractResult, FileProcessingResult } from '../types.js';
@@ -33,12 +35,15 @@ export async function regexExtract(params: RegexExtractParams): Promise<ExtractR
     validateCaptureGroups(parsedPattern.pattern);
 
     // Find all matching files using glob
-    const files = await glob(path_pattern, {
+    const globResults = await glob(normalizeGlobPath(path_pattern), {
       ignore: exclude,
       absolute: true,
       onlyFiles: true,
       followSymbolicLinks: false,
     });
+
+    // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+    const files = globResults.map(f => path.normalize(f));
 
     if (files.length === 0) {
       return [];

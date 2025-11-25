@@ -12,25 +12,72 @@ export const DEFAULT_BINARY_CHECK_SIZE = 8192;
 export const DEFAULT_ENCODING = 'utf-8';
 
 /**
+ * Normalize path for fast-glob (convert backslashes to forward slashes on Windows)
+ * @param pathPattern - Path pattern to normalize
+ * @returns Normalized path with forward slashes
+ */
+export function normalizeGlobPath(pathPattern: string): string {
+  return pathPattern.replace(/\\/g, '/');
+}
+
+/**
+ * Escape special regex characters in a string for literal matching
+ * @param str - String to escape
+ * @returns Escaped string safe for use in RegExp
+ */
+export function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Convert a literal pattern string to a regex pattern that matches it literally
+ * Handles multi-line patterns by escaping each line and joining with flexible newline pattern
+ * @param pattern - Literal pattern string
+ * @returns Escaped regex pattern
+ */
+export function escapeLiteralPattern(pattern: string): string {
+  const lines = pattern.split(/\r?\n/);
+  const escapedLines = lines.map(line => escapeRegex(line));
+  return escapedLines.join('\\r?\\n');
+}
+
+/**
  * Parse pattern string, supporting both plain and /pattern/flags format
  * @param pattern - Pattern string
  * @param flagsParam - Optional flags parameter
+ * @param literal - If true, treat pattern as literal string (escape special chars)
  * @returns Parsed pattern and flags
  */
-export function parsePattern(pattern: string, flagsParam?: string): ParsedPattern {
+export function parsePattern(pattern: string, flagsParam?: string, literal?: boolean): ParsedPattern {
+  let processedPattern = pattern;
+
+  // Extract pattern from /pattern/flags format if present
   if (pattern.startsWith('/')) {
     const lastSlash = pattern.lastIndexOf('/');
     if (lastSlash > 0) {
       const extractedPattern = pattern.slice(1, lastSlash);
       const extractedFlags = pattern.slice(lastSlash + 1);
+      processedPattern = extractedPattern;
+
+      // If literal mode, escape the extracted pattern
+      if (literal) {
+        processedPattern = escapeLiteralPattern(processedPattern);
+      }
+
       return {
-        pattern: extractedPattern,
+        pattern: processedPattern,
         flags: flagsParam || extractedFlags || '',
       };
     }
   }
+
+  // If literal mode, escape the pattern
+  if (literal) {
+    processedPattern = escapeLiteralPattern(processedPattern);
+  }
+
   return {
-    pattern,
+    pattern: processedPattern,
     flags: flagsParam || '',
   };
 }

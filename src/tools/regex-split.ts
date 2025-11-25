@@ -1,8 +1,10 @@
+import path from 'path';
 import glob from 'fast-glob';
 import {
   parsePattern,
   createRegex,
   readFileWithBinaryCheck,
+  normalizeGlobPath,
   DEFAULT_BINARY_CHECK_SIZE,
 } from '../utils.js';
 import { RegexSplitParams, SplitResult, FileProcessingResult } from '../types.js';
@@ -20,25 +22,29 @@ export async function regexSplit(params: RegexSplitParams): Promise<SplitResult[
       path_pattern,
       pattern,
       flags,
+      literal = false,
       max_splits,
       exclude = [],
       binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE,
     } = params;
 
     // Find all matching files using glob
-    const files = await glob(path_pattern, {
+    const globResults = await glob(normalizeGlobPath(path_pattern), {
       ignore: exclude,
       absolute: true,
       onlyFiles: true,
       followSymbolicLinks: false,
     });
 
+    // Normalize paths back to native format (converts forward slashes to backslashes on Windows)
+    const files = globResults.map(f => path.normalize(f));
+
     if (files.length === 0) {
       return [];
     }
 
     // Parse pattern and create regex once
-    const parsedPattern = parsePattern(pattern, flags);
+    const parsedPattern = parsePattern(pattern, flags, literal);
     const regex = createRegex(parsedPattern);
 
     // Process all files concurrently
