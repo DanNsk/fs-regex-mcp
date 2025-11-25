@@ -1,6 +1,6 @@
 import path from 'path';
 import glob from 'fast-glob';
-import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAllMatches, getLineAndColumn, normalizeGlobPath, DEFAULT_BINARY_CHECK_SIZE, } from '../utils.js';
+import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAllMatches, getLineAndColumn, normalizeGlobPath, withTimeout, DEFAULT_BINARY_CHECK_SIZE, DEFAULT_TIMEOUT_SECONDS, DEFAULT_MAX_RESULTS, } from '../utils.js';
 /**
  * Search for pattern matches in files matching the path pattern.
  * Supports glob patterns (e.g., "*.js", "src/**.ts") for multiple files.
@@ -9,8 +9,8 @@ import { parsePattern, createRegex, readFileWithBinaryCheck, getContext, findAll
  * @throws Error string if operation fails
  */
 export async function regexSearch(params) {
-    try {
-        const { path_pattern, pattern, flags, literal = false, context_before = 0, context_after = 0, max_matches, exclude = [], binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE, } = params;
+    const operation = async () => {
+        const { path_pattern, pattern, flags, literal = false, context_before = 0, context_after = 0, max_matches, exclude = [], binary_check_buffer_size = DEFAULT_BINARY_CHECK_SIZE, max_results = DEFAULT_MAX_RESULTS, } = params;
         // Find all matching files using glob
         const globResults = await glob(normalizeGlobPath(path_pattern), {
             ignore: exclude,
@@ -26,31 +26,40 @@ export async function regexSearch(params) {
         // Parse pattern and create regex once
         const parsedPattern = parsePattern(pattern, flags, literal);
         const regex = createRegex(parsedPattern);
-        // Process all files concurrently
-        const fileProcessingPromises = files.map(async (file) => {
+        // Process files sequentially, stopping when max_results is reached
+        const allResults = [];
+        for (const file of files) {
+            if (allResults.length >= max_results) {
+                break;
+            }
             try {
                 // Read file with binary check
                 const content = await readFileWithBinaryCheck(file, binary_check_buffer_size);
                 if (content === null) {
-                    // Binary file, return empty results
-                    return { results: [] };
+                    // Binary file, skip
+                    continue;
                 }
                 // Create a fresh regex instance for each file (to reset lastIndex)
                 const fileRegex = new RegExp(regex.source, regex.flags);
-                // Find all matches
-                const matches = findAllMatches(content, fileRegex, max_matches ? Math.ceil(max_matches / files.length) : undefined);
+                // Calculate remaining space for this file
+                const remaining = max_results - allResults.length;
+                const fileLimit = max_matches ? Math.min(max_matches, remaining) : remaining;
+                // Find matches up to the limit
+                const matches = findAllMatches(content, fileRegex, fileLimit);
                 if (matches.length === 0) {
-                    return { results: [] };
+                    continue;
                 }
                 // Split content into lines for context
                 const lines = content.split('\n');
                 // Process each match
-                const results = [];
                 for (const { index, match } of matches) {
+                    if (allResults.length >= max_results) {
+                        break;
+                    }
                     const { line, column } = getLineAndColumn(content, index);
                     const lineIndex = line - 1; // Convert to 0-based for array access
                     const context = getContext(lines, lineIndex, context_before, context_after);
-                    results.push({
+                    allResults.push({
                         file,
                         line,
                         column,
@@ -60,32 +69,17 @@ export async function regexSearch(params) {
                         context_after: context.after,
                     });
                 }
-                return { results };
             }
             catch (error) {
-                // Return error for this file, but continue processing others
-                return {
-                    results: [],
-                    error: String(error),
-                    file,
-                };
-            }
-        });
-        // Wait for all files to be processed
-        const fileResults = await Promise.all(fileProcessingPromises);
-        // Flatten results from all files
-        const allResults = [];
-        let totalMatches = 0;
-        for (const fileResult of fileResults) {
-            for (const result of fileResult.results) {
-                if (max_matches && totalMatches >= max_matches) {
-                    return allResults;
-                }
-                allResults.push(result);
-                totalMatches++;
+                // Skip this file and continue with others
+                continue;
             }
         }
         return allResults;
+    };
+    try {
+        const { timeout = DEFAULT_TIMEOUT_SECONDS } = params;
+        return await withTimeout(operation(), timeout);
     }
     catch (error) {
         if (error instanceof Error) {

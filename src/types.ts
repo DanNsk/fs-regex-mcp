@@ -8,6 +8,8 @@ export interface BaseParams {
   binary_check_buffer_size?: number;
   path_pattern: string;
   exclude?: string[];
+  timeout?: number; // Total operation timeout in seconds (default: 30)
+  max_results?: number; // Global limit for results across all files (default: 100)
 }
 
 /**

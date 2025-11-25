@@ -8,6 +8,26 @@ export const DEFAULT_BINARY_CHECK_SIZE = 8192;
  */
 export const DEFAULT_ENCODING = 'utf-8';
 /**
+ * Default timeout for operations in seconds
+ */
+export const DEFAULT_TIMEOUT_SECONDS = 30;
+/**
+ * Default global maximum results across all files
+ */
+export const DEFAULT_MAX_RESULTS = 100;
+/**
+ * Wrap a promise with a timeout
+ * @param promise - Promise to wrap
+ * @param timeoutSeconds - Timeout in seconds
+ * @returns Promise that rejects if timeout is exceeded
+ */
+export function withTimeout(promise, timeoutSeconds) {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`Operation timed out after ${timeoutSeconds} seconds`)), timeoutSeconds * 1000)),
+    ]);
+}
+/**
  * Normalize path for fast-glob (convert backslashes to forward slashes on Windows)
  * @param pathPattern - Path pattern to normalize
  * @returns Normalized path with forward slashes
